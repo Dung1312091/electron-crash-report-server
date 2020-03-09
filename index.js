@@ -1,22 +1,42 @@
-const express = require("express");
-var bodyParser = require("body-parser");
-var multer = require("multer");
-var upload = multer({ dest: "uploads/" });
+const express = require("express"),
+  multer = require("multer"),
+  bodyParser = require("body-parser"),
+  path = require("path"),
+  fs = require("fs"),
+  http = require("http"),
+  miniDumpsPath = path.join(__dirname, "app-crashes");
+var cors = require("cors");
 const app = express();
 // parse application/x-www-form-urlencoded
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(
+  bodyParser.urlencoded({
+    extended: false
+  })
+);
 
 // parse application/json
 app.use(bodyParser.json());
-app.get("/", function(req, res) {
-  res.send("Hello World");
-});
-app.post(
-  "/crash-report",
-  upload.fields([{ name: "upload_file_minidump", maxCount: 1 }]),
-  function(req, res) {
-    console.log("body=======>", req);
-  }
-);
+app.use(cors());
+let upload = multer({
+  dest: miniDumpsPath
+}).single("upload_file_minidump");
 
-app.listen(3001);
+app.post("/crash-report", upload, (req, res) => {
+  req.body.filename = req.file.filename;
+  const crashData = JSON.stringify(req.body);
+  fs.writeFile(req.file.path + ".json", crashData, e => {
+    if (e) {
+      return console.error("Cant write: " + e.message);
+    }
+    console.info("crash written to file:\n\t" + crashData);
+  });
+  res.end();
+});
+app.post("/bugs", (req, res) => {
+  console.log("====>", req.body);
+  res.json({});
+});
+
+app.listen(3001, () => {
+  console.log("running on port 3001");
+});
